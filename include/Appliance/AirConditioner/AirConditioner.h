@@ -38,6 +38,7 @@ class AirConditioner : public ApplianceBase {
   Preset getPreset() const { return this->m_preset; }
   const Capabilities &getCapabilities() const { return this->m_capabilities; }
   void displayToggle() { this->m_displayToggle(); }
+  void setPowerUsagePolling(bool enable) { this->m_powerUsagePolling = enable; }
  protected:
   void m_getPowerUsage();
   void m_getCapabilities();
@@ -59,6 +60,7 @@ class AirConditioner : public ApplianceBase {
   Preset m_lastPreset{Preset::PRESET_NONE};
   StatusData m_status{};
   bool m_sendControl{};
+<<<<<<< HEAD
   // Coalesces control() calls that arrive while a previous control is in flight.
   // Without this, rapid back-to-back calls (e.g. four single-field HA service calls)
   // are silently dropped -- only the first survives.
@@ -66,6 +68,9 @@ class AirConditioner : public ApplianceBase {
   bool m_hasPendingControl{};
   void m_mergePending(const Control &control);
   void m_flushPending();
+=======
+  bool m_powerUsagePolling{true};
+>>>>>>> ba78ac4 (Don't poll power usage when not configured or the unit does not support it)
 };
 
 }  // namespace ac
