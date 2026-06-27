@@ -65,7 +65,7 @@ class AirConditioner : public ApplianceBase {
   // are silently dropped -- only the first survives.
   Control m_pendingControl{};
   bool m_hasPendingControl{};
-  bool m_powerUsagePolling{ true };
+  bool m_powerUsagePolling{ false };
   void m_mergePending(const Control& control);
   void m_flushPending();
 };
