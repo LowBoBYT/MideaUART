@@ -70,6 +70,10 @@ void AirConditioner::control(const Control &control) {
       hasUpdate = true;
       status.setSwingMode(control.swingMode.value());
     }
+    if (mode == Mode::MODE_DRY) {
+      hasUpdate = true;
+      status.setFanMode(FanMode::FAN_AUTO);
+    }
   }
   if (control.targetTemp.hasUpdate(this->m_targetTemp)) {
     hasUpdate = true;
@@ -121,12 +125,12 @@ void AirConditioner::m_setStatus(StatusData status) {
 
 void AirConditioner::m_mergePending(const Control &control) {
   LOG_D(TAG, "Coalescing control() -- current request still in flight, merging into pending");
+  if (control.fanMode.hasValue())
+  this->m_pendingControl.fanMode = control.fanMode;
   if (control.mode.hasValue())
     this->m_pendingControl.mode = control.mode;
   if (control.preset.hasValue())
     this->m_pendingControl.preset = control.preset;
-  if (control.fanMode.hasValue())
-    this->m_pendingControl.fanMode = control.fanMode;
   if (control.swingMode.hasValue())
     this->m_pendingControl.swingMode = control.swingMode;
   if (control.targetTemp.hasValue())
@@ -154,23 +158,6 @@ void AirConditioner::setPowerState(bool state) {
 void AirConditioner::m_getPowerUsage() {
   if (!this->m_powerUsagePolling)
     return;
-  if (this->m_autoconfStatus == AUTOCONF_OK && !this->m_capabilities.powerCal())
-    return;
-  QueryPowerData data{};
-  LOG_D(TAG, "Enqueuing a GET_POWERUSAGE(0x41) request...");
-  this->m_queueRequest(FrameType::DEVICE_QUERY, std::move(data),
-    // onData
-    [this](FrameData data) -> ResponseStatus {
-      const auto status = data.to<StatusData>();
-      if (!status.hasPowerInfo())
-        return ResponseStatus::RESPONSE_WRONG;
-      if (this->m_powerUsage != status.getPowerUsage()) {
-        this->m_powerUsage = status.getPowerUsage();
-        this->sendUpdate();
-      }
-      return ResponseStatus::RESPONSE_OK;
-    }
-  );
 }
 
 void AirConditioner::m_getCapabilities() {
@@ -195,7 +182,7 @@ void AirConditioner::m_getCapabilities() {
     },
     // onError
     [this]() {
-      LOG_W(TAG, "Failed to get 0xB5 capabilities report.");
+      LOG_W(TAG, "Failed to get 0xB5 capabilities report. ERROR: Autoconf failed." );
       this->m_autoconfStatus = AUTOCONF_ERROR;
     }
   );
