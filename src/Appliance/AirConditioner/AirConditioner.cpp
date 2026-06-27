@@ -74,6 +74,10 @@ void AirConditioner::control(const Control &control) {
       hasUpdate = true;
       status.setFanMode(FanMode::FAN_AUTO);
     }
+    if (status.getMode() == Mode::MODE_DRY && (mode == Mode::MODE_COOL || mode == Mode::MODE_HEAT || mode == Mode::MODE_FAN_ONLY)) {
+      hasUpdate = true;
+      status.setFanMode(FanMode::FAN_MEDIUM);
+    }
   }
   if (control.targetTemp.hasUpdate(this->m_targetTemp)) {
     hasUpdate = true;
@@ -126,7 +130,7 @@ void AirConditioner::m_setStatus(StatusData status) {
 void AirConditioner::m_mergePending(const Control &control) {
   LOG_D(TAG, "Coalescing control() -- current request still in flight, merging into pending");
   if (control.fanMode.hasValue())
-  this->m_pendingControl.fanMode = control.fanMode;
+    this->m_pendingControl.fanMode = control.fanMode;
   if (control.mode.hasValue())
     this->m_pendingControl.mode = control.mode;
   if (control.preset.hasValue())
