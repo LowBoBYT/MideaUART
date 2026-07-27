@@ -86,27 +86,85 @@ void AirConditioner::control(const Control &control) {
     hasUpdate = true;
     status.setTargetTemp(control.targetTemp.value());
   }
-  if (hasUpdate) {
-    this->m_sendControl = true;
-    status.setMode(mode);
-    status.setPreset(preset);
-    status.setBeeper(this->m_beeper);
-    status.appendCRC();
-    if (isModeChanged && preset != Preset::PRESET_NONE && preset != Preset::PRESET_SLEEP) {
-      // Last command with preset
-      this->m_setStatus(status);
-      status.setPreset(Preset::PRESET_NONE);
-      status.setBeeper(false);
-      status.updateCRC();
-      // First command without preset
-      this->m_queueRequestPriority(FrameType::DEVICE_CONTROL, std::move(status),
+if (hasUpdate) {
+  this->m_sendControl = true;
+
+  const bool isTurningOff =
+      this->m_mode != Mode::MODE_OFF &&
+      mode == Mode::MODE_OFF;
+
+  if (isTurningOff) {
+    // Zuerst FAN_MEDIUM senden, während die Klimaanlage noch eingeschaltet ist.
+    StatusData fanStatus = status;
+    fanStatus.setMode(this->m_mode);
+    fanStatus.setPreset(this->m_preset);
+    fanStatus.setFanMode(FanMode::FAN_MEDIUM);
+    fanStatus.setBeeper(false);
+    fanStatus.appendCRC();
+
+    this->m_queueRequestPriority(
+        FrameType::DEVICE_CONTROL,
+        std::move(fanStatus),
+
         // onData
-        std::bind(&AirConditioner::m_readStatus, this, std::placeholders::_1)
-      );
-    } else {
-      this->m_setStatus(std::move(status));
-    }
+        std::bind(
+            &AirConditioner::m_readStatus,
+            this,
+            std::placeholders::_1),
+
+        // onSuccess
+        [this, status = std::move(status)]() mutable {
+          // Erst nach erfolgreicher Fan-Änderung ausschalten.
+          status.setMode(Mode::MODE_OFF);
+          status.setFanMode(FanMode::FAN_MEDIUM);
+          status.setPreset(Preset::PRESET_NONE);
+          status.setBeeper(this->m_beeper);
+          status.updateCRC();
+
+          this->m_setStatus(std::move(status));
+        },
+
+        // onError
+        [this, status = std::move(status)]() mutable {
+          LOG_W(TAG, "Failed to set FAN_MEDIUM before power off");
+
+          // Trotzdem ausschalten.
+          status.setMode(Mode::MODE_OFF);
+          status.setPreset(Preset::PRESET_NONE);
+          status.setBeeper(this->m_beeper);
+          status.updateCRC();
+
+          this->m_setStatus(std::move(status));
+        });
+
+    return;
   }
+
+  status.setMode(mode);
+  status.setPreset(preset);
+  status.setBeeper(this->m_beeper);
+  status.appendCRC();
+
+  if (isModeChanged &&
+      preset != Preset::PRESET_NONE &&
+      preset != Preset::PRESET_SLEEP) {
+    this->m_setStatus(status);
+
+    status.setPreset(Preset::PRESET_NONE);
+    status.setBeeper(false);
+    status.updateCRC();
+
+    this->m_queueRequestPriority(
+        FrameType::DEVICE_CONTROL,
+        std::move(status),
+        std::bind(
+            &AirConditioner::m_readStatus,
+            this,
+            std::placeholders::_1));
+  } else {
+    this->m_setStatus(std::move(status));
+  }
+}
 }
 
 void AirConditioner::m_setStatus(StatusData status) {
