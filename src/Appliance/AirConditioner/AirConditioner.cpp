@@ -78,6 +78,9 @@ void AirConditioner::control(const Control &control) {
       hasUpdate = true;
       status.setFanMode(FanMode::FAN_MEDIUM);
     }
+  } else {
+      hasUpdate = true;
+      status.setFanMode(FanMode::FAN_MEDIUM);
   }
   if (control.targetTemp.hasUpdate(this->m_targetTemp)) {
     hasUpdate = true;
