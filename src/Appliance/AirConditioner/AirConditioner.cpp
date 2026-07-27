@@ -74,7 +74,10 @@ void AirConditioner::control(const Control &control) {
       hasUpdate = true;
       status.setFanMode(FanMode::FAN_AUTO);
     }
-    if (status.getMode() == Mode::MODE_DRY && (mode == Mode::MODE_COOL || mode == Mode::MODE_HEAT || mode == Mode::MODE_FAN_ONLY)) {
+    // Some units keep RAW mode/fan values from DRY even while powered off.
+    // When switching to COOL/HEAT/FAN_ONLY, force a valid non-DRY fan preset.
+    if (status.getRawMode() == Mode::MODE_DRY &&
+        (mode == Mode::MODE_COOL || mode == Mode::MODE_HEAT || mode == Mode::MODE_FAN_ONLY)) {
       hasUpdate = true;
       status.setFanMode(FanMode::FAN_MEDIUM);
     }
